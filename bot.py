@@ -19,13 +19,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Load from .env file if it exists (local development)
 load_dotenv()
+
+# Get token from environment (Railway) or .env (local)
 token = os.getenv('DISCORD_TOKEN')
 
 # Validate token exists
 if not token:
-    print("ERROR: DISCORD_TOKEN not found in .env file!")
-    print("Please create a .env file with: DISCORD_TOKEN=your_token_here")
+    print("ERROR: DISCORD_TOKEN environment variable not set!")
+    print("\nFor local development:")
+    print("  Create .env file with: DISCORD_TOKEN=your_token_here")
+    print("\nFor Railway deployment:")
+    print("  1. Go to Railway dashboard")
+    print("  2. Click your project")
+    print("  3. Go to 'Variables' tab")
+    print("  4. Add: DISCORD_TOKEN = your_token_here")
     exit(1)
 
 # Bot setup with intents
