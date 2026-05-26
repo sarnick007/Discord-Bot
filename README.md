@@ -1,28 +1,28 @@
-# 🤖 Discord Bot - Enhanced Edition
+# Discord Bot
 
 A feature-rich Discord bot built with discord.py featuring memes, jokes, games, and more!
 
 **Original Project**: My custom meme bot created in 2023  
-**Current Version**: Completely rewritten with 10+ commands and modern features ✨
+**Current Version**: Completely rewritten with 10+ commands and modern features
 
 ---
 
-## ✨ Features
+## Features
 
-### 🎉 Entertainment Commands
+### Entertainment Commands
 - **$meme** - Get random memes from the internet
 - **$joke** - Get random jokes
 - **$8ball** - Ask the magic 8 ball
 - **$roll** - Roll a random number
 - **$flip** - Flip a coin
 
-### 👤 User Commands
+### User Commands
 - **$avatar** - Show any user's avatar
 - **$userinfo** - Display user information
 - **$time** - Show current time
 - **$saymyname** - Easter egg message
 
-### 🛠️ Bot Utilities
+### Bot Utilities
 - **$help** - Display all available commands
 - **$ping** - Check bot latency
 - **Rotating Status** - Bot status changes every 5 minutes
@@ -31,7 +31,7 @@ A feature-rich Discord bot built with discord.py featuring memes, jokes, games, 
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Python 3.8 or higher
@@ -76,7 +76,7 @@ A feature-rich Discord bot built with discord.py featuring memes, jokes, games, 
 
 ---
 
-## 🌐 24/7 Hosting
+## 24/7 Hosting
 
 To keep your bot online 24/7, see [HOSTING_GUIDE.md](HOSTING_GUIDE.md) for options:
 - **Replit** (Free, easiest)
@@ -86,7 +86,7 @@ To keep your bot online 24/7, see [HOSTING_GUIDE.md](HOSTING_GUIDE.md) for optio
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 Discord Bot/
@@ -99,7 +99,7 @@ Discord Bot/
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Discord Bot Setup
 1. Visit https://discord.com/developers/applications
@@ -116,7 +116,7 @@ Discord Bot/
 
 ---
 
-## 📚 Technologies Used
+## Technologies Used
 
 - **discord.py** - Python Discord API wrapper
 - **requests** - HTTP library for API calls
@@ -124,7 +124,7 @@ Discord Bot/
 
 ---
 
-## 🔒 Security
+## Security
 
 - ✅ Token stored in `.env` (never commit to git)
 - ✅ Error handling for API failures
@@ -133,7 +133,7 @@ Discord Bot/
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 **Bot won't start?**
 - Verify Discord token is correct
@@ -151,25 +151,25 @@ Discord Bot/
 
 ---
 
-## 📝 License
+## License
 
 Free to use and modify
 
 ---
 
-## 👤 Creator
+## Creator
 
 Created by Sarnick
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Feel free to fork and add your own features!
 
 ---
 
-## 📞 Support
+## Support
 
 Need help? Check the [HOSTING_GUIDE.md](HOSTING_GUIDE.md) for detailed setup instructions.
 
