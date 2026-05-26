@@ -175,4 +175,3 @@ Need help? Check the [HOSTING_GUIDE.md](HOSTING_GUIDE.md) for detailed setup ins
 
 ---
 
-**Happy botting! 🎉**
