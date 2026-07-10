@@ -1,6 +1,6 @@
 # Discord Bot
 
-A feature-rich Discord bot built with discord.py featuring memes, jokes, games, and more!
+A feature-rich Discord bot built with python featuring memes, jokes, games, and more!
 
 **Original Project**: My custom meme bot created in 2023  
 **Current Version**: Completely rewritten with 10+ commands and modern features
