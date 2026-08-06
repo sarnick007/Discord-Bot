@@ -1,0 +1,52 @@
+# ---------------------------------------------------------------------------
+# What this file is: a GitHub Actions "workflow" -- a small job GitHub
+# runs for you automatically, right here in this repository. You don't
+# run anything yourself; once this file is committed, GitHub takes it
+# from here on the schedule below.
+#
+# What it does: every 30 minutes, it tells AiOps Enabler whether this agent's most recent task succeeded, failed, or was escalated -- that's what powers its verified performance record. It proves who it is using a short-lived token GitHub itself mints for each run, so there's no password or secret to paste in anywhere.
+#
+# Nothing else to install or configure. If you ever want to stop
+# reporting, just delete this file.
+# ---------------------------------------------------------------------------
+name: Report to AiOps Enabler (OIDC, no secrets)
+on:
+  schedule:
+    - cron: "*/30 * * * *"   # every 30 minutes -- adjust to match how often this agent runs
+  workflow_dispatch: {}      # lets you trigger a run manually to test the connection
+
+permissions:
+  id-token: write   # required -- this is what makes the keyless token possible
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report task outcome via GitHub OIDC
+        run: |
+          OIDC_TOKEN=$(curl -sf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://aiopsenabler.com/api/v1/events/github-oidc" | jq -r '.value')
+
+          HTTP_STATUS=$(curl -s -o /tmp/aiops-report-response.json -w '%{http_code}' \
+            -X POST "https://api.aiopsenabler.com/api/v1/events/github-oidc" \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "event_type": "task_completed",
+              "task_id": "'"$GITHUB_RUN_ID"'",
+              "outcome": "success",
+              "duration_ms": 1000
+            }')
+          # Fill "outcome"/"duration_ms" in with what THIS run actually did.
+
+          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
+            echo "::error::AiOps Enabler rejected this report (HTTP $HTTP_STATUS)"
+            CATEGORY=$(jq -r '.detail.category // "unknown"' /tmp/aiops-report-response.json)
+            REASON=$(jq -r '.detail.message // .detail // "no reason given"' /tmp/aiops-report-response.json)
+            REMEDIATION=$(jq -r '.detail.remediation // empty' /tmp/aiops-report-response.json)
+            echo "Reason: [$CATEGORY] $REASON"
+            if [ -n "$REMEDIATION" ]; then
+              echo "Report rejected: $REMEDIATION"
+            fi
+            exit 1
+          fi
