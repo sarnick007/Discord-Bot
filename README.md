@@ -1,9 +1,9 @@
 # Discord Bot
 
-A feature-rich Discord bot built with python featuring memes, jokes, games, and more!
+A feature-rich Discord bot built with Python featuring memes, jokes, games, and more!
 
 **Original Project**: My custom meme bot created in 2023  
-**Current Version**: Completely rewritten with 10+ commands and modern features
+**Current Version**: Completely rewritten with 11 commands and modern features
 
 ---
 
@@ -15,11 +15,12 @@ A feature-rich Discord bot built with python featuring memes, jokes, games, and 
 - **$8ball** - Ask the magic 8 ball
 - **$roll** - Roll a random number
 - **$flip** - Flip a coin
+- **$choose** - Choose between options
 
 ### User Commands
 - **$avatar** - Show any user's avatar
 - **$userinfo** - Display user information
-- **$time** - Show current time
+- **$time** - Show current UTC time
 - **$saymyname** - Easter egg message
 
 ### Bot Utilities
@@ -67,22 +68,29 @@ A feature-rich Discord bot built with python featuring memes, jokes, games, and 
 | `$8ball [question]` | Magic 8 ball 🎱 |
 | `$roll [max]` | Roll a number (1-100 default) 🎲 |
 | `$flip` | Flip a coin 🪙 |
+| `$choose <a\|b\|...>` | Choose between options ✅ |
 | `$avatar [@user]` | Show avatar 👤 |
 | `$userinfo [@user]` | User information 📊 |
-| `$time` | Current time ⏰ |
+| `$time` | Current time (UTC) ⏰ |
 | `$ping` | Bot latency 🏓 |
 | `$help` | All commands 📖 |
 | `$saymyname` | Easter egg 🙏 |
 
 ---
 
-## 24/7 Hosting
+## 🚀 24/7 Hosting
 
-To keep your bot online 24/7, see [HOSTING_GUIDE.md](HOSTING_GUIDE.md) for options:
-- **Replit** (Free, easiest)
-- **Railway.app** (Free tier available)
-- **Render** (Free tier available)
-- **DigitalOcean** (Paid, most reliable)
+> **⚠️ Vercel/Cloudflare Workers cannot host Discord bots.** Use platforms that support long-running processes.
+
+**Recommended (Free):**
+- [Render](https://render.com) — Background Worker, 750h/month free
+- [Railway](https://railway.app) — $5 credit/month free
+
+**Other options:**
+- [Fly.io](https://fly.io) — 3 free micro-VMs
+- [DigitalOcean](https://www.digitalocean.com) — $4/month Droplet
+
+See [DEPLOY.md](DEPLOY.md) for detailed deployment instructions.
 
 ---
 
@@ -92,9 +100,11 @@ To keep your bot online 24/7, see [HOSTING_GUIDE.md](HOSTING_GUIDE.md) for optio
 Discord Bot/
 ├── bot.py              # Main bot file
 ├── requirements.txt    # Python dependencies
+├── render.yaml         # Render deployment config
+├── Dockerfile          # Container deployment config
 ├── .env               # Environment variables (create this)
 ├── README.md          # This file
-└── HOSTING_GUIDE.md   # 24/7 hosting setup guide
+└── DEPLOY.md          # Deployment guide
 ```
 
 ---
@@ -119,17 +129,19 @@ Discord Bot/
 ## Technologies Used
 
 - **discord.py** - Python Discord API wrapper
-- **requests** - HTTP library for API calls
+- **aiohttp** - Async HTTP client (non-blocking API calls)
 - **python-dotenv** - Environment variable management
 
 ---
 
 ## Security
 
-- ✅ Token stored in `.env` (never commit to git)
-- ✅ Error handling for API failures
-- ✅ Command validation
-- ✅ Graceful shutdown
+- ✅ Token stored in `.env` (never committed)
+- ✅ Non-blocking async API calls
+- ✅ Graceful error handling
+- ✅ Command cooldowns prevent abuse
+- ✅ Structured logging (file + console)
+- ✅ Graceful shutdown on SIGTERM
 
 ---
 
@@ -146,8 +158,9 @@ Discord Bot/
 - Use `$help` to see all available commands
 
 **Bot goes offline?**
-- Read [HOSTING_GUIDE.md](HOSTING_GUIDE.md) for 24/7 solutions
-- Set up uptime monitoring
+- Check your hosting platform's logs
+- Verify `DISCORD_TOKEN` is set correctly
+- Ensure your hosting plan supports long-running processes
 
 ---
 
@@ -171,7 +184,4 @@ Feel free to fork and add your own features!
 
 ## Support
 
-Need help? Check the [HOSTING_GUIDE.md](HOSTING_GUIDE.md) for detailed setup instructions.
-
----
-
+Need help? Check the [DEPLOY.md](DEPLOY.md) for detailed setup instructions.
