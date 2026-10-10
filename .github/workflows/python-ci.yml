@@ -34,7 +34,7 @@ jobs:
           python -m pip install -r requirements.txt
 
       - name: Compile Python files
-        run: python -m compileall -q bot.py test_bot.py
+        run: python -m compileall -q bot.py test_bot.py scripts/discord_healthcheck.py
 
       - name: Run offline smoke tests
         run: python -m unittest -v test_bot
@@ -44,5 +44,6 @@ jobs:
           test -s bot.py
           test -s requirements.txt
           test -s Dockerfile
+          test -s scripts/discord_healthcheck.py
           grep -q '^discord.py==' requirements.txt
           grep -q '^python-dotenv' requirements.txt
