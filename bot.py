@@ -10,6 +10,10 @@ import discord
 from discord.ext import commands, tasks
 import aiohttp
 
+# Load local development settings before configuring logging; hosted environment
+# variables take precedence because python-dotenv does not override by default.
+load_dotenv()
+
 # ──────────────────────────────────────────────
 # Logging: console by default, optional file for local/VPS deployments
 # ──────────────────────────────────────────────
@@ -36,9 +40,6 @@ if _log_file_error:
 # ──────────────────────────────────────────────
 # Environment
 # ──────────────────────────────────────────────
-load_dotenv()
-
-
 def get_discord_token() -> str:
     """Return the configured bot token, or fail with platform-neutral guidance."""
     token = os.getenv("DISCORD_TOKEN", "").strip()
