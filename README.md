@@ -1,187 +1,126 @@
 # Discord Bot
 
-A feature-rich Discord bot built with Python featuring memes, jokes, games, and more!
-
-**Original Project**: My custom meme bot created in 2023  
-**Current Version**: Completely rewritten with 11 commands and modern features
-
----
+A cross-platform Discord entertainment bot built with Python and `discord.py`. It runs as a persistent process on Windows, macOS, Linux, Docker, virtual machines, and worker-style hosting services.
 
 ## Features
 
-### Entertainment Commands
-- **$meme** - Get random memes from the internet
-- **$joke** - Get random jokes
-- **$8ball** - Ask the magic 8 ball
-- **$roll** - Roll a random number
-- **$flip** - Flip a coin
-- **$choose** - Choose between options
+- `$help` — list commands
+- `$ping` — report Discord gateway latency
+- `$meme` — fetch a random meme
+- `$joke` — fetch a random joke
+- `$8ball <question>` — ask the magic 8-ball
+- `$roll [max]` — roll from 1 to the supplied maximum (100 by default)
+- `$flip` — flip a coin
+- `$choose option1|option2|option3` — choose an option
+- `$avatar [@user]` — show a user's avatar
+- `$userinfo [@user]` — show basic user information
+- `$time` — display UTC time
+- `$saymyname` — creator easter egg
+- Rotating activity and per-user command cooldowns
 
-### User Commands
-- **$avatar** - Show any user's avatar
-- **$userinfo** - Display user information
-- **$time** - Show current UTC time
-- **$saymyname** - Easter egg message
+## Requirements
 
-### Bot Utilities
-- **$help** - Display all available commands
-- **$ping** - Check bot latency
-- **Rotating Status** - Bot status changes every 5 minutes
-- **Beautiful Embeds** - All responses use rich Discord embeds
-- **Error Handling** - Graceful error messages
+- Python **3.12** is the recommended runtime. The source uses Python 3.10+ syntax.
+- A Discord application and bot token.
+- Network access to Discord's Gateway and the public meme/joke APIs for those two commands.
 
----
+## Run locally
 
-## Quick Start
+### Windows (PowerShell)
 
-### Prerequisites
-- Python 3.8 or higher
-- Discord bot token (from https://discord.com/developers)
-
-### Installation
-
-1. **Clone/Download the repository**
-
-2. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. **Create `.env` file:**
-   ```env
-   DISCORD_TOKEN=your_discord_bot_token_here
-   ```
-
-4. **Run the bot:**
-   ```bash
-   python bot.py
-   ```
-
----
-
-## 📖 Commands
-
-| Command | Description |
-|---------|-------------|
-| `$meme` | Random meme 🎉 |
-| `$joke` | Random joke 😂 |
-| `$8ball [question]` | Magic 8 ball 🎱 |
-| `$roll [max]` | Roll a number (1-100 default) 🎲 |
-| `$flip` | Flip a coin 🪙 |
-| `$choose <a\|b\|...>` | Choose between options ✅ |
-| `$avatar [@user]` | Show avatar 👤 |
-| `$userinfo [@user]` | User information 📊 |
-| `$time` | Current time (UTC) ⏰ |
-| `$ping` | Bot latency 🏓 |
-| `$help` | All commands 📖 |
-| `$saymyname` | Easter egg 🙏 |
-
----
-
-## 🚀 24/7 Hosting
-
-> **⚠️ Vercel/Cloudflare Workers cannot host Discord bots.** Use platforms that support long-running processes.
-
-**Recommended (Free):**
-- [Render](https://render.com) — Background Worker, 750h/month free
-- [Railway](https://railway.app) — $5 credit/month free
-
-**Other options:**
-- [Fly.io](https://fly.io) — 3 free micro-VMs
-- [DigitalOcean](https://www.digitalocean.com) — $4/month Droplet
-
-See [DEPLOY.md](DEPLOY.md) for detailed deployment instructions.
-
----
-
-## Project Structure
-
-```
-Discord Bot/
-├── bot.py              # Main bot file
-├── requirements.txt    # Python dependencies
-├── render.yaml         # Render deployment config
-├── Dockerfile          # Container deployment config
-├── .env               # Environment variables (create this)
-├── README.md          # This file
-└── DEPLOY.md          # Deployment guide
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+Copy-Item .env.example .env
+# Edit .env and set DISCORD_TOKEN to your bot token.
+python bot.py
 ```
 
----
+### macOS / Linux
+
+```bash
+python3.12 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+cp .env.example .env
+# Edit .env and set DISCORD_TOKEN to your bot token.
+python bot.py
+```
+
+You can also set `DISCORD_TOKEN` directly in the process environment instead of using a `.env` file. Environment variables are the recommended way to configure hosted deployments.
+
+## Discord Developer Portal setup
+
+1. Open the [Discord Developer Portal](https://discord.com/developers/applications) and choose the bot application.
+2. Under **Bot → Privileged Gateway Intents**, enable **Message Content Intent**. This bot uses prefix commands (the `$` prefix), so Discord must allow message content.
+3. Keep **Server Members Intent** and **Presence Intent** disabled unless you deliberately need them. They are disabled by default in code. To opt in, set `ENABLE_MEMBERS_INTENT=true` or `ENABLE_PRESENCE_INTENT=true` and enable the matching intent in the Developer Portal.
+4. Invite the bot with the `bot` OAuth2 scope and, at minimum, **View Channels**, **Send Messages**, **Embed Links**, and **Read Message History** in the channels where it should respond.
 
 ## Configuration
 
-### Discord Bot Setup
-1. Visit https://discord.com/developers/applications
-2. Create new application
-3. Go to "Bot" → "Add Bot"
-4. Copy token to `.env` file
-5. Enable "Message Content Intent" (required)
-6. Invite bot using OAuth2 URL Generator
+| Variable | Required | Default | Purpose |
+|---|---|---|---|
+| `DISCORD_TOKEN` | Yes | — | Bot token, stored as a secret/environment variable |
+| `LOG_LEVEL` | No | `INFO` | Python logging level, e.g. `DEBUG`, `INFO`, `WARNING` |
+| `LOG_FILE` | No | Unset | Optional log-file path. Console logging is used by default for container compatibility. |
+| `ENABLE_MEMBERS_INTENT` | No | `false` | Opt in to privileged Server Members Intent |
+| `ENABLE_PRESENCE_INTENT` | No | `false` | Opt in to privileged Presence Intent |
 
-### Required Permissions
-- Send Messages
-- Embed Links
-- Read Message History
+Never commit a real `.env`, publish a token, put it in code, or add it to logs. If a token is exposed, regenerate it immediately in the Developer Portal.
 
----
+## Run with Docker
 
-## Technologies Used
+The Docker image runs as an unprivileged user and writes logs to standard output.
 
-- **discord.py** - Python Discord API wrapper
-- **aiohttp** - Async HTTP client (non-blocking API calls)
-- **python-dotenv** - Environment variable management
+```bash
+docker build -t discord-bot .
+docker run --rm -e DISCORD_TOKEN="YOUR_TOKEN" discord-bot
+```
 
----
+For repeat use, set the environment variable through your deployment platform's secret manager rather than typing it into a shared shell or storing it in a Dockerfile. The bot does not need an inbound HTTP port: it maintains an outbound persistent connection to Discord.
 
-## Security
+## Hosting on different platforms
 
-- ✅ Token stored in `.env` (never committed)
-- ✅ Non-blocking async API calls
-- ✅ Graceful error handling
-- ✅ Command cooldowns prevent abuse
-- ✅ Structured logging (file + console)
-- ✅ Graceful shutdown on SIGTERM
+The application code does not depend on Railway, Render, or another provider. Use any host that can run a **long-lived Python process** and permit outbound WebSocket/HTTPS connections.
 
----
+- **Docker-capable hosts / VPS:** build the included `Dockerfile`, or install Python and run `python bot.py`.
+- **Worker/background-process platforms:** set the build command to `python -m pip install -r requirements.txt`, the start command to `python bot.py`, and configure `DISCORD_TOKEN` as a secret.
+- **PaaS/buildpack platforms:** `.python-version` and `runtime.txt` provide Python version hints; `Procfile`, `railway.json`, and `render.yaml` are optional provider-specific deployment helpers.
+- **Serverless/function-only runtimes** that terminate background processes are not appropriate for a bot that must maintain a persistent Discord Gateway connection.
+
+See [DEPLOY.md](DEPLOY.md) for a provider-neutral deployment checklist.
+
+## Test
+
+The offline tests do not log in to Discord and do not need a token:
+
+```bash
+python -m pip install -r requirements.txt
+python -m unittest -v test_bot
+python -m compileall -q bot.py test_bot.py
+```
+
+GitHub Actions runs those checks on pushes and pull requests across Python 3.12, 3.13, and 3.14. Passing CI proves that the code imports, command registration/configuration checks pass, and dependencies install; it does **not** prove that a deployed bot token is valid or that the bot is online in Discord.
 
 ## Troubleshooting
 
-**Bot won't start?**
-- Verify Discord token is correct
-- Check all dependencies are installed: `pip install -r requirements.txt`
-- Enable "Message Content Intent" in Discord Developer Portal
+- **Bot exits before connecting:** verify `DISCORD_TOKEN` is configured as an environment variable. Do not paste the token into an issue or chat.
+- **Privileged intent error:** enable Message Content Intent both in code and in the Developer Portal. Enable additional intents only when you explicitly opted in.
+- **Bot is online but ignores commands:** check Message Content Intent, the `$` prefix, channel permissions, and the host logs.
+- **Meme/joke commands fail:** those commands use third-party public APIs and may fail independently of Discord connectivity.
+- **AiOps reporting workflow fails:** this is a separate scheduled GitHub Actions integration and is not a health check for the Discord bot. See its step logs for the exact OIDC/API failure.
 
-**Commands not working?**
-- Check command prefix is `$`
-- Verify bot has permission to send messages
-- Use `$help` to see all available commands
+## Project files
 
-**Bot goes offline?**
-- Check your hosting platform's logs
-- Verify `DISCORD_TOKEN` is set correctly
-- Ensure your hosting plan supports long-running processes
+- `bot.py` — bot and command implementations
+- `requirements.txt` — Python dependencies
+- `test_bot.py` — offline configuration and command smoke tests
+- `Dockerfile` — portable container runtime
+- `.env.example` — safe local configuration template
+- `.github/workflows/python-ci.yml` — code checks
+- `.github/workflows/report-to-aiops-enabler.yml` — optional AiOps reporting integration
 
----
-
-## License
-
-Free to use and modify
-
----
-
-## Creator
-
-Created by Sarnick
-
----
-
-## Contributing
-
-Feel free to fork and add your own features!
-
----
-
-## Support
-
-Need help? Check the [DEPLOY.md](DEPLOY.md) for detailed setup instructions.
+Created by Sarnick Patra.
