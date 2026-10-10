@@ -33,6 +33,16 @@ class BotConfigurationTests(unittest.TestCase):
         self.assertFalse(intents.members)
         self.assertFalse(intents.presences)
 
+    def test_subreddit_argument_validation(self):
+        self.assertIsNone(bot_module.SUBREDDIT_PATTERN.fullmatch("r/memes"))
+        self.assertIsNotNone(bot_module.SUBREDDIT_PATTERN.fullmatch("ProgrammerHumor"))
+
+    def test_meme_image_urls_must_be_https_direct_images(self):
+        self.assertTrue(bot_module._is_direct_image_url("https://i.redd.it/example.jpg"))
+        self.assertTrue(bot_module._is_direct_image_url("https://cdn.example.org/meme.webp"))
+        self.assertFalse(bot_module._is_direct_image_url("http://i.redd.it/example.jpg"))
+        self.assertFalse(bot_module._is_direct_image_url("https://reddit.com/r/memes"))
+
 
 if __name__ == "__main__":
     unittest.main()
