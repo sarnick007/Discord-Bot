@@ -445,11 +445,14 @@ async def main():
             await bot.start(token)
         except discord.LoginFailure:
             logger.critical("Invalid Discord token – check DISCORD_TOKEN")
+            raise SystemExit(1)
         except discord.PrivilegedIntentsRequired:
             logger.critical(
-                "Required intents not enabled – enable Message Content Intent "
-                "in the Discord Developer Portal"
+                "A required privileged intent is disabled. Enable Message Content Intent "
+                "and Server Members Intent in the Discord Developer Portal, or disable "
+                "the corresponding intent in bot.py."
             )
+            raise SystemExit(1)
         finally:
             # Clean up aiohttp session
             global _http_session
