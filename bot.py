@@ -466,9 +466,11 @@ async def main():
             raise SystemExit(1)
         except discord.PrivilegedIntentsRequired:
             logger.critical(
-                "A required privileged intent is disabled. Enable Message Content Intent "
-                "and Server Members Intent in the Discord Developer Portal, or disable "
-                "the corresponding intent in bot.py."
+                "A required privileged intent is disabled. This prefix-command bot "
+                "requires Message Content Intent to be enabled both in bot.py and in "
+                "the Discord Developer Portal. Only enable Server Members or Presence "
+                "Intent if you explicitly set ENABLE_MEMBERS_INTENT=true or "
+                "ENABLE_PRESENCE_INTENT=true."
             )
             raise SystemExit(1)
         finally:
