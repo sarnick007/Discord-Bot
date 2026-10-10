@@ -477,7 +477,9 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         logger.info("Bot stopped by user")
-    except SystemExit:
+    except SystemExit as exc:
+        if exc.code not in (None, 0):
+            sys.exit(exc.code)
         logger.info("Bot stopped by signal")
     except Exception as exc:
         logger.critical("Unrecoverable error: %s", exc)
