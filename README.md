@@ -6,7 +6,7 @@ A cross-platform Discord entertainment bot built with Python and `discord.py`. I
 
 - `$help` — list commands
 - `$ping` — report Discord gateway latency
-- `$meme` — fetch a random meme
+- `$meme [subreddit]` — fetch a random image meme from Reddit (e.g. `$meme ProgrammerHumor`); falls back to meme-api.com
 - `$joke` — fetch a random joke
 - `$8ball <question>` — ask the magic 8-ball
 - `$roll [max]` — roll from 1 to the supplied maximum (100 by default)
@@ -22,7 +22,7 @@ A cross-platform Discord entertainment bot built with Python and `discord.py`. I
 
 - Python **3.12** is the recommended runtime. The source uses Python 3.10+ syntax.
 - A Discord application and bot token.
-- Network access to Discord's Gateway and the public meme/joke APIs for those two commands.
+- Network access to Discord's Gateway and the public meme/joke APIs. Meme fetching tries Reddit's public listing first and falls back to meme-api.com; either service can rate-limit or become unavailable.
 
 ## Run locally
 
@@ -120,12 +120,12 @@ This is a separate, temporary login check—not proof that the production deploy
 - **Bot exits before connecting:** verify `DISCORD_TOKEN` is configured as an environment variable. Do not paste the token into an issue or chat.
 - **Privileged intent error:** enable Message Content Intent both in code and in the Developer Portal. Enable additional intents only when you explicitly opted in.
 - **Bot is online but ignores commands:** check Message Content Intent, the `$` prefix, channel permissions, and the host logs.
-- **Meme/joke commands fail:** those commands use third-party public APIs and may fail independently of Discord connectivity.
+- **Meme/joke commands fail:** they rely on Reddit's public listing and third-party public APIs, which can rate-limit or change. The meme command currently serves direct image posts only, skips posts flagged NSFW, and skips video/link posts. Instagram, TikTok, and X are not scraped because reliable access generally requires their official APIs and credentials.
 - **AiOps reporting workflow fails:** this is a separate scheduled GitHub Actions integration and is not a health check for the Discord bot. See its step logs for the exact OIDC/API failure.
 
 ## Project files
 
-- `bot.py` — bot and command implementations
+- `bot.py` — bot, entertainment commands, and Reddit/meme API helpers
 - `requirements.txt` — Python dependencies
 - `test_bot.py` — offline configuration and command smoke tests
 - `Dockerfile` — portable container runtime
