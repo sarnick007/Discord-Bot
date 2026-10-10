@@ -11,44 +11,53 @@ from discord.ext import commands, tasks
 import aiohttp
 
 # ──────────────────────────────────────────────
-# Logging (resilient to read-only container fs)
+# Logging: console by default, optional file for local/VPS deployments
 # ──────────────────────────────────────────────
-_log_handlers: list[logging.Handler] = [logging.StreamHandler()]
-try:
-    _fh = logging.FileHandler("bot.log")
-    _log_handlers.append(_fh)
-except OSError:
-    # Container / read-only filesystem – skip file logging
-    pass
+_log_handlers: list[logging.Handler] = [logging.StreamHandler(sys.stdout)]
+_log_file = os.getenv("LOG_FILE")
+_log_file_error: OSError | None = None
+if _log_file:
+    try:
+        _log_handlers.append(logging.FileHandler(_log_file, encoding="utf-8"))
+    except OSError as exc:
+        _log_file_error = exc
 
+_log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, logging.INFO)
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
+    level=_log_level,
+    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s",
     handlers=_log_handlers,
 )
 logger = logging.getLogger(__name__)
+if _log_file_error:
+    logger.warning("Could not open LOG_FILE=%r; using console logging only: %s", _log_file, _log_file_error)
 
 # ──────────────────────────────────────────────
 # Environment
 # ──────────────────────────────────────────────
 load_dotenv()
 
-token = os.getenv("DISCORD_TOKEN")
 
-if not token:
-    logger.critical(
-        "DISCORD_TOKEN environment variable not set!\n"
-        "  Local:  create .env with DISCORD_TOKEN=your_token_here\n"
-        "  Railway/Render: add DISCORD_TOKEN in the Variables / Environment tab"
-    )
-    sys.exit(1)
+def get_discord_token() -> str:
+    """Return the configured bot token, or fail with platform-neutral guidance."""
+    token = os.getenv("DISCORD_TOKEN", "").strip()
+    if not token:
+        raise RuntimeError(
+            "DISCORD_TOKEN is not configured. Set it as an environment variable "
+            "or add it to a local .env file. Never commit the real token."
+        )
+    return token
 
 # ──────────────────────────────────────────────
 # Bot setup
 # ──────────────────────────────────────────────
 intents = discord.Intents.default()
+# Prefix commands read message content, so enable this in code and in the
+# Discord Developer Portal. Other privileged intents are opt-in only.
 intents.message_content = True
-intents.members = True
+intents.members = os.getenv("ENABLE_MEMBERS_INTENT", "false").strip().lower() == "true"
+intents.presences = os.getenv("ENABLE_PRESENCE_INTENT", "false").strip().lower() == "true"
 
 bot = commands.Bot(command_prefix="$", intents=intents, help_command=None)
 
@@ -379,9 +388,12 @@ async def userinfo(ctx: commands.Context, member: discord.Member | None = None):
     else:
         embed.add_field(name="Joined Server", value="Unknown", inline=True)
 
-    embed.add_field(
-        name="Status", value=str(member.status) if member.status else "Unknown", inline=True
+    status_value = (
+        str(member.status)
+        if intents.presences
+        else "Not enabled (set ENABLE_PRESENCE_INTENT=true to opt in)"
     )
+    embed.add_field(name="Status", value=status_value, inline=True)
     embed.add_field(name="Is Bot", value="Yes" if member.bot else "No", inline=True)
     embed.set_thumbnail(url=member.display_avatar.url)
     await ctx.send(embed=embed)
@@ -440,6 +452,12 @@ async def choose(ctx: commands.Context, *, choices: str):
 # Main entry point with graceful shutdown
 # ══════════════════════════════════════════════
 async def main():
+    try:
+        token = get_discord_token()
+    except RuntimeError as exc:
+        logger.critical("%s", exc)
+        raise SystemExit(1)
+
     async with bot:
         try:
             await bot.start(token)
