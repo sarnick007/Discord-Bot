@@ -13,6 +13,11 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -20,18 +25,24 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: ${{ matrix.python-version }}
           cache: pip
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
 
-      - name: Compile bot
-        run: python -m py_compile bot.py
+      - name: Compile Python files
+        run: python -m compileall -q bot.py test_bot.py
 
-      - name: Validate required deployment files
+      - name: Run offline smoke tests
+        run: python -m unittest -v test_bot
+
+      - name: Validate deployment files
         run: |
           test -s bot.py
           test -s requirements.txt
+          test -s Dockerfile
           grep -q '^discord.py==' requirements.txt
-          grep -q '^python-dotenv==' requirements.txt
+          grep -q '^python-dotenv' requirements.txt
