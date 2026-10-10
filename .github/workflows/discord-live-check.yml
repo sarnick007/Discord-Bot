@@ -1,0 +1,36 @@
+name: Discord live connection check
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  connect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install bot dependencies
+        run: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+
+      - name: Validate credential configuration
+        shell: bash
+        run: |
+          if [[ -z "${DISCORD_TOKEN:-}" ]]; then
+            echo "::error::The DISCORD_TOKEN GitHub Actions secret is missing. Add it under Settings → Secrets and variables → Actions. Do not paste the token into a log or chat."
+            exit 1
+          fi
+
+      - name: Authenticate with Discord Gateway
+        run: python -u scripts/discord_healthcheck.py
