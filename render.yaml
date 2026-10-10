@@ -2,8 +2,10 @@ services:
   - type: worker
     name: discord-bot
     runtime: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: python bot.py
+    buildCommand: python -m pip install --upgrade pip && python -m pip install -r requirements.txt
+    startCommand: python -u bot.py
     envVars:
       - key: DISCORD_TOKEN
         sync: false
+      - key: LOG_LEVEL
+        value: INFO
