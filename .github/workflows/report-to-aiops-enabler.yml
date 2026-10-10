@@ -1,52 +1,89 @@
-# ---------------------------------------------------------------------------
-# What this file is: a GitHub Actions "workflow" -- a small job GitHub
-# runs for you automatically, right here in this repository. You don't
-# run anything yourself; once this file is committed, GitHub takes it
-# from here on the schedule below.
-#
-# What it does: every 30 minutes, it tells AiOps Enabler whether this agent's most recent task succeeded, failed, or was escalated -- that's what powers its verified performance record. It proves who it is using a short-lived token GitHub itself mints for each run, so there's no password or secret to paste in anywhere.
-#
-# Nothing else to install or configure. If you ever want to stop
-# reporting, just delete this file.
-# ---------------------------------------------------------------------------
 name: Report to AiOps Enabler (OIDC, no secrets)
+
 on:
   schedule:
-    - cron: "*/30 * * * *"   # every 30 minutes -- adjust to match how often this agent runs
-  workflow_dispatch: {}      # lets you trigger a run manually to test the connection
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
 
 permissions:
-  id-token: write   # required -- this is what makes the keyless token possible
+  id-token: write
+  contents: read
+
+concurrency:
+  group: aiops-report
+  cancel-in-progress: false
 
 jobs:
   report:
     runs-on: ubuntu-latest
+    timeout-minutes: 3
     steps:
       - name: Report task outcome via GitHub OIDC
+        shell: bash
+        env:
+          OIDC_AUDIENCE: https://aiopsenabler.com/api/v1/events/github-oidc
+          AIOPS_EVENT_URL: https://api.aiopsenabler.com/api/v1/events/github-oidc
         run: |
-          OIDC_TOKEN=$(curl -sf -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=https://aiopsenabler.com/api/v1/events/github-oidc" | jq -r '.value')
+          set -uo pipefail
 
-          HTTP_STATUS=$(curl -s -o /tmp/aiops-report-response.json -w '%{http_code}' \
-            -X POST "https://api.aiopsenabler.com/api/v1/events/github-oidc" \
-            -H "Authorization: Bearer $OIDC_TOKEN" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "event_type": "task_completed",
-              "task_id": "'"$GITHUB_RUN_ID"'",
-              "outcome": "success",
-              "duration_ms": 1000
-            }')
-          # Fill "outcome"/"duration_ms" in with what THIS run actually did.
-
-          if [ "$HTTP_STATUS" -lt 200 ] || [ "$HTTP_STATUS" -ge 300 ]; then
-            echo "::error::AiOps Enabler rejected this report (HTTP $HTTP_STATUS)"
-            CATEGORY=$(jq -r '.detail.category // "unknown"' /tmp/aiops-report-response.json)
-            REASON=$(jq -r '.detail.message // .detail // "no reason given"' /tmp/aiops-report-response.json)
-            REMEDIATION=$(jq -r '.detail.remediation // empty' /tmp/aiops-report-response.json)
-            echo "Reason: [$CATEGORY] $REASON"
-            if [ -n "$REMEDIATION" ]; then
-              echo "Report rejected: $REMEDIATION"
-            fi
+          # Fail with an actionable message rather than a bare curl exit code.
+          if [[ -z "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" || -z "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
+            echo "::error::GitHub did not provide OIDC request variables. Confirm this workflow has id-token: write permission and that organization/repository policies allow OIDC."
             exit 1
           fi
+
+          OIDC_URL="${ACTIONS_ID_TOKEN_REQUEST_URL}"
+          if [[ "$OIDC_URL" == *\?* ]]; then
+            OIDC_URL="${OIDC_URL}&audience=${OIDC_AUDIENCE}"
+          else
+            OIDC_URL="${OIDC_URL}?audience=${OIDC_AUDIENCE}"
+          fi
+
+          echo "Requesting a short-lived GitHub OIDC token..."
+          if ! OIDC_RESPONSE="$(curl --fail --silent --show-error \
+            --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 --retry-all-errors \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "$OIDC_URL")"; then
+            echo "::error::Could not obtain the GitHub OIDC token. Check runner network/DNS and GitHub OIDC availability; curl's diagnostic above identifies the failing request."
+            exit 1
+          fi
+
+          OIDC_TOKEN="$(jq -er '.value | select(type == "string" and length > 0)' <<< "$OIDC_RESPONSE")" || {
+            echo "::error::GitHub's OIDC response did not contain a non-empty token."
+            exit 1
+          }
+
+          # Keep the request payload valid JSON and avoid printing the token.
+          PAYLOAD="$(jq -cn --arg task_id "$GITHUB_RUN_ID" \
+            '{event_type:"task_completed", task_id:$task_id, outcome:"success", duration_ms:1000}')"
+
+          echo "Submitting the report to AiOps Enabler..."
+          RESPONSE_FILE="$(mktemp)"
+          trap 'rm -f "$RESPONSE_FILE"' EXIT
+
+          if ! HTTP_STATUS="$(curl --silent --show-error \
+            --connect-timeout 10 --max-time 20 --retry 3 --retry-delay 2 --retry-all-errors \
+            -o "$RESPONSE_FILE" -w '%{http_code}' \
+            -X POST "$AIOPS_EVENT_URL" \
+            -H "Authorization: Bearer $OIDC_TOKEN" \
+            -H "Content-Type: application/json" \
+            --data "$PAYLOAD")"; then
+            echo "::error::Could not connect to AiOps Enabler. Check DNS/network availability for api.aiopsenabler.com."
+            exit 1
+          fi
+
+          unset OIDC_TOKEN OIDC_RESPONSE ACTIONS_ID_TOKEN_REQUEST_TOKEN
+
+          if [[ ! "$HTTP_STATUS" =~ ^2[0-9][0-9]$ ]]; then
+            echo "::error::AiOps Enabler rejected the report (HTTP $HTTP_STATUS)."
+            jq -r '
+              if type == "object" then
+                "Category: " + (.detail.category // "unknown" | tostring),
+                "Reason: " + (.detail.message // .detail // "No response detail supplied" | tostring),
+                (if .detail.remediation then "Remediation: " + (.detail.remediation | tostring) else empty end)
+              else "Response was not a JSON object." end
+            ' "$RESPONSE_FILE" 2>/dev/null || head -c 1000 "$RESPONSE_FILE"
+            exit 1
+          fi
+
+          echo "AiOps Enabler accepted the report (HTTP $HTTP_STATUS)."
