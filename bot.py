@@ -4,6 +4,9 @@ import asyncio
 import signal
 import random
 import logging
+import html
+import re
+from urllib.parse import urlparse
 from datetime import datetime, timezone
 from dotenv import load_dotenv
 import discord
@@ -94,25 +97,136 @@ ACTIVITY_TYPE_MAP = {
 # ══════════════════════════════════════════════
 # Non-blocking API helpers (async)
 # ══════════════════════════════════════════════
-async def fetch_meme() -> str:
-    """Fetch a random meme URL.  Returns the image URL or an error string."""
+# Keep the default feed focused on general-audience communities. A requested
+# subreddit can also be supplied to the meme command; posts marked NSFW are skipped.
+DEFAULT_MEME_SUBREDDITS = (
+    "memes",
+    "ProgrammerHumor",
+    "wholesomememes",
+    "me_irl",
+    "PrequelMemes",
+)
+SUBREDDIT_PATTERN = re.compile(r"^[A-Za-z0-9_]{2,21}$")
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+
+
+def _is_direct_image_url(url: str) -> bool:
+    """Return True for HTTPS URLs with a common direct-image extension."""
+    try:
+        parsed = urlparse(url)
+        return (
+            parsed.scheme == "https"
+            and bool(parsed.netloc)
+            and parsed.path.lower().endswith(tuple(IMAGE_EXTENSIONS))
+        )
+    except (TypeError, ValueError):
+        return False
+
+
+def _reddit_image_url(post: dict) -> str:
+    """Get a direct image URL from a Reddit post, ignoring video/link posts."""
+    direct_url = post.get("url_overridden_by_dest") or post.get("url") or ""
+    if _is_direct_image_url(direct_url):
+        return direct_url
+
+    # Reddit preview URLs may include HTML-escaped query parameters.
+    images = post.get("preview", {}).get("images", [])
+    if images:
+        source_url = html.unescape(images[0].get("source", {}).get("url", ""))
+        if _is_direct_image_url(source_url):
+            return source_url
+    return ""
+
+
+async def _fetch_reddit_meme(session: aiohttp.ClientSession, subreddit: str | None) -> dict | None:
+    """Fetch a random image post from Reddit's public listing JSON."""
+    feed = subreddit or "+".join(DEFAULT_MEME_SUBREDDITS)
+    url = f"https://www.reddit.com/r/{feed}/hot.json"
+    headers = {"User-Agent": "ShrekDiscordBot/1.0 (meme command)"}
+    async with session.get(
+        url,
+        params={"limit": "50", "raw_json": "1"},
+        headers=headers,
+    ) as resp:
+        if resp.status != 200:
+            logger.warning("Reddit listing returned HTTP %s for r/%s", resp.status, feed)
+            return None
+        data = await resp.json(content_type=None)
+
+    children = data.get("data", {}).get("children", [])
+    candidates = []
+    for child in children:
+        post = child.get("data", {})
+        if post.get("over_18") or post.get("is_video") or post.get("stickied"):
+            continue
+        image_url = _reddit_image_url(post)
+        if not image_url:
+            continue
+        candidates.append({
+            "title": post.get("title") or "Reddit meme",
+            "url": image_url,
+            "post_url": "https://www.reddit.com" + post.get("permalink", ""),
+            "subreddit": post.get("subreddit") or feed,
+            "source": "Reddit",
+        })
+    return random.choice(candidates) if candidates else None
+
+
+async def _fetch_meme_api(session: aiohttp.ClientSession, subreddit: str | None) -> dict | None:
+    """Fallback to meme-api.com if Reddit's listing is unavailable."""
+    endpoint = "https://meme-api.com/gimme"
+    if subreddit:
+        endpoint += f"/{subreddit}"
+    async with session.get(endpoint) as resp:
+        if resp.status != 200:
+            logger.warning("Meme API returned HTTP %s", resp.status)
+            return None
+        data = await resp.json(content_type=None)
+
+    image_url = data.get("url", "")
+    if data.get("nsfw") or not _is_direct_image_url(image_url):
+        logger.warning("Meme API returned NSFW content or a non-direct image")
+        return None
+    return {
+        "title": data.get("title") or "Random meme",
+        "url": image_url,
+        "post_url": data.get("postLink") or image_url,
+        "subreddit": data.get("subreddit") or subreddit or "memes",
+        "source": "meme-api.com",
+    }
+
+
+async def fetch_meme(subreddit: str | None = None) -> dict | None:
+    """Fetch a general-audience meme from Reddit, with a public API fallback.
+
+    Returns title, direct image URL, post URL, subreddit and source; None if
+    no suitable image is available. This skips video posts and NSFW items.
+    """
+    normalized_subreddit = None
+    if subreddit:
+        normalized_subreddit = subreddit.removeprefix("r/").strip()
+        if not SUBREDDIT_PATTERN.fullmatch(normalized_subreddit):
+            logger.warning("Rejected invalid subreddit argument")
+            return None
+
     try:
         session = await get_http_session()
-        async with session.get("https://meme-api.com/gimme") as resp:
-            if resp.status != 200:
-                logger.warning("Meme API returned HTTP %s", resp.status)
-                return ""
-            data = await resp.json()
-            url = data.get("url", "")
-            if not url:
-                logger.warning("Meme API response missing 'url' key")
-            return url
-    except asyncio.TimeoutError:
-        logger.warning("Meme API request timed out")
-        return ""
+        try:
+            result = await _fetch_reddit_meme(session, normalized_subreddit)
+            if result:
+                return result
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
+            logger.warning("Reddit fetch failed: %s", exc)
+
+        try:
+            result = await _fetch_meme_api(session, normalized_subreddit)
+            if result:
+                return result
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError) as exc:
+            logger.warning("Meme API fallback failed: %s", exc)
     except Exception as exc:
-        logger.error("Meme API error: %s", exc)
-        return ""
+        logger.error("Meme service error: %s", exc)
+    return None
 
 
 async def fetch_joke() -> tuple[str, str]:
@@ -220,7 +334,7 @@ async def help_command(ctx: commands.Context):
     embed.add_field(
         name="Fun Commands",
         value=(
-            "`$meme` – Get a random meme\n"
+            "`$meme [subreddit]` – Get a random Reddit meme\n"
             "`$joke` – Get a random joke\n"
             "`$8ball [question]` – Ask the magic 8 ball\n"
             "`$roll [max]` – Roll a random number\n"
@@ -254,17 +368,28 @@ async def help_command(ctx: commands.Context):
 
 @bot.command(name="meme")
 @commands.cooldown(1, 5, commands.BucketType.user)
-async def meme(ctx: commands.Context):
-    """Get a random meme."""
+async def meme(ctx: commands.Context, subreddit: str | None = None):
+    """Get a random general-audience Reddit meme, optionally from one subreddit."""
     async with ctx.typing():
-        url = await fetch_meme()
-        if not url:
-            await ctx.send("😕 Couldn't fetch a meme right now. Try again later!")
+        result = await fetch_meme(subreddit)
+        if not result:
+            await ctx.send(
+                "😕 Couldn't find a suitable image meme right now. "
+                "Try the meme command again later."
+            )
             return
-        embed = discord.Embed(title="Random Meme", color=discord.Color.random())
-        embed.set_image(url=url)
+        title = str(result["title"])[:256]
+        embed = discord.Embed(
+            title=title or "Random Meme",
+            url=result.get("post_url") or result["url"],
+            color=discord.Color.random(),
+        )
+        embed.set_image(url=result["url"])
+        embed.set_footer(
+            text=f"Source: {result.get('source', 'Reddit')} • r/{result.get('subreddit', 'memes')}"
+        )
         await ctx.send(embed=embed)
-        logger.info("Meme command used by %s", ctx.author)
+        logger.info("Meme command used by %s (source=%s)", ctx.author, result.get("source"))
 
 
 @bot.command(name="joke")
