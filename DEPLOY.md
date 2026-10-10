@@ -1,134 +1,82 @@
 # Deployment Guide
 
-> **⚠️ Vercel cannot host Discord bots.** Vercel is serverless — it kills processes after seconds. Discord bots need a persistent WebSocket connection, which requires a long-running process. Use one of the platforms below instead.
+This bot is a persistent Python worker that maintains an outbound connection to Discord. It does not need an inbound HTTP port or a particular hosting provider.
 
----
+## 1. Configure the Discord application
 
-## Option 1: Render (Recommended — Free)
+1. Create/open the application at https://discord.com/developers/applications.
+2. Under **Bot → Privileged Gateway Intents**, enable **Message Content Intent** because the bot uses the `$` prefix.
+3. Keep **Server Members Intent** and **Presence Intent** disabled unless needed. They are opt-in in code via `ENABLE_MEMBERS_INTENT=true` and `ENABLE_PRESENCE_INTENT=true`.
+4. Invite it with the `bot` OAuth2 scope and permissions such as View Channels, Send Messages, Embed Links, and Read Message History.
+5. Store the bot token securely as the environment variable `DISCORD_TOKEN`.
 
-Render has a **Background Worker** service type designed for long-running processes like Discord bots.
+Never commit the actual token to GitHub or include it in logs.
 
-### Steps:
-1. Push your code to GitHub
-2. Go to [render.com](https://render.com) and sign in
-3. Click **"New +"** → **"Background Worker"**
-4. Connect your GitHub repo
-5. Render auto-detects `render.yaml` — verify settings:
-   - **Runtime**: Python
-   - **Build Command**: `pip install -r requirements.txt`
-   - **Start Command**: `python bot.py`
-6. Go to **Environment** tab and add:
-   - `DISCORD_TOKEN` = your bot token
-7. Click **"Create Background Worker"**
-8. Bot stays online 24/7 with auto-restart on failure
+## 2. Generic deployment requirements
 
-**Free tier**: 750 hours/month (enough for one bot)
+Choose a host that supports all of the following:
 
----
+- A long-running Python process (not a short-lived request/function runtime).
+- Outbound connectivity to Discord's Gateway over WebSocket and HTTPS.
+- Secure environment variables/secrets.
+- Process restart/recovery after failure.
 
-## Option 2: Railway (Free tier available)
+Recommended runtime: Python 3.12. The repository includes `.python-version`, `runtime.txt`, and a Dockerfile as deployment aids.
 
-Railway supports worker processes and auto-deploys from GitHub.
+## 3. Run directly on a machine or virtual machine
 
-### Steps:
-1. Push code to GitHub
-2. Go to [railway.app](https://railway.app) and sign in with GitHub
-3. Click **"New Project"** → **"Deploy from GitHub Repo"**
-4. Select your bot repo
-5. Railway auto-detects Python — it runs `pip install -r requirements.txt` then `python bot.py`
-6. Go to **Variables** tab and add:
-   - `DISCORD_TOKEN` = your bot token
-7. Deploy!
+Install Python 3.12 and then:
 
-**Free tier**: $5 credit/month (enough for small bots)
+```bash
+python -m venv .venv
+# macOS/Linux:
+source .venv/bin/activate
+# Windows PowerShell:
+# .\.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m unittest -v test_bot
+python bot.py
+```
 
----
+Set `DISCORD_TOKEN` through the machine's environment or a local `.env` file. For a server, use a supervisor such as systemd, Docker restart policies, or the platform's worker supervisor rather than relying on an interactive terminal.
 
-## Option 3: Fly.io (Free tier)
+## 4. Run with Docker
 
-Fly.io runs your bot in a lightweight micro-VM.
+```bash
+docker build -t discord-bot .
+docker run --rm -e DISCORD_TOKEN="YOUR_TOKEN" discord-bot
+```
 
-### Steps:
-1. Install [Fly CLI](https://fly.io/docs/hands-on/install-flyctl/)
-2. Run:
-   ```bash
-   fly launch
-   fly secrets set DISCORD_TOKEN=your_token_here
-   fly deploy
-   ```
+For production, inject the value through the host's secret manager. Do not bake credentials into the image or Dockerfile.
 
-**Free tier**: 3 shared-cpu-1x VMs (256MB RAM each)
+## 5. Managed worker platforms
 
----
+On a managed worker/background-process service, configure:
 
-## Option 4: DigitalOcean Droplet ($4/month)
+- **Build command:** `python -m pip install -r requirements.txt`
+- **Start command:** `python -u bot.py`
+- **Secret/environment variable:** `DISCORD_TOKEN`
+- **Optional variables:** `LOG_LEVEL`, `LOG_FILE`, `ENABLE_MEMBERS_INTENT`, `ENABLE_PRESENCE_INTENT`
 
-Most reliable option if you want full control.
+The repository includes optional `render.yaml`, `railway.json`, and `Procfile` examples. They are deployment conveniences only; the bot code does not import or depend on those providers.
 
-### Steps:
-1. Create a $4/month Droplet
-2. SSH in and install Python:
-   ```bash
-   apt update && apt install -y python3-pip
-   ```
-3. Upload files:
-   ```bash
-   scp -r . root@your_server:/root/discord-bot
-   ```
-4. Install and run:
-   ```bash
-   cd /root/discord-bot
-   pip3 install -r requirements.txt
-   python3 bot.py
-   ```
-5. Use `tmux` or `systemd` to keep it running
+## 6. Verify a deployment
 
----
+Look for a startup log similar to `Logged in as ...`. Then, in a channel where the bot has permissions, test:
 
-## ❌ Why NOT Vercel / Heroku / Cloudflare Workers?
+- `$ping` — should reply with latency.
+- `$help` — should list commands.
+- `$choose Pizza|Burger|Sushi` — should choose one option.
 
-| Platform | Issue |
-|----------|-------|
-| **Vercel** | Serverless — kills processes after 10s. Cannot maintain WebSocket. |
-| **Cloudflare Workers** | Edge runtime — no Python, no persistent connections. |
-| **Heroku** | Free tier removed (Nov 2022). Starts at $7/month. |
-| **Replit** | Unstable for 24/7 — often sleeps or crashes. |
-
----
-
-## Quick Comparison
-
-| Platform | Free? | Auto-restart | Persistent process | Difficulty |
-|----------|-------|--------------|-------------------|------------|
-| **Render** | ✅ 750h/mo | ✅ | ✅ Background Worker | Easy |
-| **Railway** | ✅ $5 credit | ✅ | ✅ | Easy |
-| **Fly.io** | ✅ 3 VMs | ✅ | ✅ Micro-VM | Medium |
-| **DO Droplet** | ❌ $4/mo | ❌ (manual) | ✅ Full VPS | Hard |
-
----
-
-## Pre-deployment Checklist
-
-- [ ] Set `DISCORD_TOKEN` in the platform's environment variables
-- [ ] Enable **Message Content Intent** in [Discord Developer Portal](https://discord.com/developers/applications)
-- [ ] Bot has **Send Messages**, **Embed Links**, **Read Message History** permissions
-- [ ] Test locally: `python bot.py`
-- [ ] Check logs after deploy for "Logged in as..." confirmation
-
----
+If startup fails, inspect the host logs without sharing token values. A successful GitHub Actions CI run checks the code and dependencies, but does not verify the live token or gateway connection.
 
 ## Troubleshooting
 
-**Bot won't come online?**
-- Verify `DISCORD_TOKEN` is correct
-- Enable "Message Content Intent" in Discord Developer Portal
-- Check deploy logs for errors
-
-**Bot goes offline periodically?**
-- Some free tiers have memory limits — upgrade if needed
-- Check if API calls are timing out (bot.log file)
-
-**Commands not working?**
-- Ensure prefix is `$`
-- Verify bot permissions in Discord server
-- Run `$help` to see available commands
+- **Missing token:** set `DISCORD_TOKEN` in the runtime environment.
+- **Invalid token:** regenerate it in the Discord Developer Portal and update the host's secret.
+- **Privileged intent error:** enable Message Content Intent in both the portal and code configuration. Only enable other privileged intents when needed.
+- **Commands ignored:** confirm the `$` prefix, Message Content Intent, and channel permissions.
+- **Bot exits when a terminal closes:** use a managed worker, container restart policy, or process supervisor.
+- **Meme/joke API errors:** those commands rely on external public APIs and can fail independently of the Discord connection.
+- **AiOps workflow errors:** the scheduled reporting workflow is separate from the Discord runtime, and its status does not indicate whether the bot is online.
