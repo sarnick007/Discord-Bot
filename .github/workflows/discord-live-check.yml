@@ -1,6 +1,12 @@
 name: Discord live connection check
 
 on:
+  # A workflow-only push can verify the configured credential once without
+  # running a login check on every application-code commit.
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/discord-live-check.yml"
   workflow_dispatch:
 
 permissions:
