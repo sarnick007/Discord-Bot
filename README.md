@@ -105,6 +105,16 @@ python -m compileall -q bot.py test_bot.py
 
 GitHub Actions runs those checks on pushes and pull requests across Python 3.12, 3.13, and 3.14. Passing CI proves that the code imports, command registration/configuration checks pass, and dependencies install; it does **not** prove that a deployed bot token is valid or that the bot is online in Discord.
 
+### Manual live Discord connection check
+
+The **Discord live connection check** workflow under GitHub Actions can verify that the configured token can authenticate and reach Discord's Gateway. To use it:
+
+1. In repository **Settings → Secrets and variables → Actions**, create a secret named `DISCORD_TOKEN` (the value remains hidden).
+2. Open **Actions → Discord live connection check → Run workflow**.
+3. A successful run confirms that this secret is valid and a short-lived connection can be established. A failure prints a safe diagnostic without printing the token.
+
+This is a separate, temporary login check—not proof that the production deployment process is currently running. To verify the deployed instance, check the hosting service's logs for `Logged in as ...` and test `$ping` in Discord.
+
 ## Troubleshooting
 
 - **Bot exits before connecting:** verify `DISCORD_TOKEN` is configured as an environment variable. Do not paste the token into an issue or chat.
