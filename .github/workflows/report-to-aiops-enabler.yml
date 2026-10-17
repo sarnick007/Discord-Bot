@@ -1,14 +1,8 @@
 name: Report to AiOps Enabler (OIDC, no secrets)
 
+# Manual-only while the external AiOps endpoint is failing DNS resolution.
+# Re-enable scheduled reporting after api.aiopsenabler.com is reachable again.
 on:
-  # A push that changes this workflow can exercise the OIDC/API path immediately.
-  # Normal application-code pushes do not send extra reports.
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/report-to-aiops-enabler.yml"
-  schedule:
-    - cron: "*/30 * * * *"
   workflow_dispatch:
 
 permissions:
